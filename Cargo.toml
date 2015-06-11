@@ -1,0 +1,10 @@
+[package]
+name = "rust_multithread"
+version = "0.0.1"
+authors = [ "Masator Hori <rillomas@gmail.com>" ]
+
+[dependencies]
+rand = "0.3.8"
+
+[[bin]]
+name = "rust_multithread"
