@@ -6,10 +6,11 @@ mod image;
 fn set_random_data(img: &mut image::Image) {
 	let size = img.header.width*img.header.height;
 	let mut rng = rand::thread_rng();
-	img.data.clear();
-	img.data.reserve(size);
-	for i in 0..size {
-		img.data.push(rng.gen::<u16>());
+	let ref mut data = img.data;
+	data.clear();
+	data.reserve(size);
+	for _ in 0..size {
+		data.push(rng.gen::<u16>());
 	}
 }
 
