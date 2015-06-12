@@ -11,19 +11,20 @@ pub struct ImageHeader {
 	pub format: ImageFormat,
 }
 
-pub struct Image {
+pub struct Image<T: ?Sized>{
 	pub header: ImageHeader,
-	pub data: Vec<u16>,
+	pub data: T,
 }
-impl Image {
-	pub fn new(width: usize, height: usize, format: ImageFormat) -> Image {
+
+impl<T: ?Sized> Image<T> {
+	pub fn new<U>(width: usize, height: usize, format: ImageFormat, data: U) -> Image<U> {
 		Image {
 			header: ImageHeader {
 				width: width,
 				height: height,
 				format: format,
 			},
-			data: Vec::new(),
+			data: data,
 		}
 	}
 
