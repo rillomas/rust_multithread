@@ -5,6 +5,8 @@ authors = [ "Masator Hori <rillomas@gmail.com>" ]
 
 [dependencies]
 rand = "0.3.8"
+bincode = "0.3.0"
+rustc-serialize = "0.3"
 
 [[bin]]
 name = "rust_multithread"

@@ -12,6 +12,8 @@
 
 # image files
 *.pgm
+*.bin
+*.rcbin
 
 # =========================
 # Operating System Files

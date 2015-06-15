@@ -1,4 +1,5 @@
 extern crate rand;
+extern crate rustc_serialize;
 use rand::Rng;
 
 mod image;
@@ -48,17 +49,21 @@ fn main() {
 	println!("{}", msg);
 	set_random_data(&mut img);
 
-	// img.write_to_file("before.bin").unwrap();
-	let before = "before.pgm";
-	img.write_as_pgm(before)
+	img.write_to_file("before.bin").unwrap();
+	//let before = "before.pgm";
+	//img.write_as_pgm(before)
+	let before = "before.rcbin";
+	img.encode(before)
 		.unwrap_or_else(|e| panic!("Error while writing to {}: {}", before, e));
 
 	// apply average filter
 	let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
 	average_filter(&img, 2, &mut tmp);
 
-	// tmp.write_to_file("after.bin").unwrap();
-	let after = "after.pgm";
-	tmp.write_as_pgm(after)
+	tmp.write_to_file("after.bin").unwrap();
+	//let after = "after.pgm";
+	//tmp.write_as_pgm(after)
+	let after = "after.rcbin";
+	tmp.encode(after)
 		.unwrap_or_else(|e| panic!("Error while writing to {}: {}", after, e));
 }

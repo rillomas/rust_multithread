@@ -1,21 +1,23 @@
 extern crate std;
+extern crate bincode;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::fs::File;
 use std::mem;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(RustcEncodable, RustcDecodable, Debug, Copy, Clone, PartialEq)]
 pub enum ImageFormat {
 	GrayScale,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(RustcEncodable, RustcDecodable, Debug, Copy, Clone, PartialEq)]
 pub struct ImageHeader {
 	pub width: usize,
 	pub height: usize,
 	pub format: ImageFormat,
 }
 
+#[derive(RustcEncodable, RustcDecodable)]
 pub struct Image {
 	pub header: ImageHeader,
 	pub data: Vec<u16>,
@@ -65,6 +67,17 @@ impl Image {
 			try!(write!(bw, "{} ", d));
 		}
 		Ok(())
+	}
+
+	pub fn encode(&self, path: &str) ->  Result<(), Box<std::error::Error>> {
+		match bincode::encode(self, bincode::SizeLimit::Infinite) {
+			Err(e) => std::result::Result::Err(Box::new(e)),
+			Ok(bytes) => {
+		        let mut file = try!(File::create(path));
+		        try!(file.write_all(&bytes));
+		        Ok(())
+			}
+		}
 	}
 
 }
