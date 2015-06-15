@@ -30,7 +30,7 @@ impl Image {
 				height: height,
 				format: format,
 			},
-			data: vec![0x1234; width*height],
+			data: vec![0; width*height],
 		}
 	}
 
@@ -41,6 +41,7 @@ impl Image {
 		// println!("before length: {}", self.data.len());
 		let sl: &[u8];
 		unsafe {
+			// convert u16 slice to u8 slice without copying
 			sl = std::slice::from_raw_parts(
 				self.data.as_ptr() as *const u8,
 				self.data.len() * mem::size_of::<u16>());
