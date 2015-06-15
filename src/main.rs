@@ -48,11 +48,13 @@ fn main() {
 	println!("{}", msg);
 	set_random_data(&mut img);
 
-	img.write_to_file("before.bin").unwrap();
+	// img.write_to_file("before.bin").unwrap();
+	img.write_as_pgm("before.pgm").unwrap();
 
 	// apply average filter
 	let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
 	average_filter(&img, 2, &mut tmp);
 
-	tmp.write_to_file("after.bin").unwrap();
+	// tmp.write_to_file("after.bin").unwrap();
+	tmp.write_as_pgm("after.pgm").unwrap();
 }

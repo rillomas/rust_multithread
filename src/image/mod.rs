@@ -7,7 +7,6 @@ use std::mem;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ImageFormat {
 	GrayScale,
-	Rgb32,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -48,7 +47,24 @@ impl Image {
 		}
 		// println!("after length: {}", sl.len());
 		try!(bw.write_all(sl));
-		return Ok(())
+		Ok(())
+	}
+
+	/// Write image content as PGM to the specified path
+	pub fn write_as_pgm(&self, path: &str) -> std::io::Result<()> {
+		let f = try!(File::create(path));
+		let mut bw = BufWriter::new(f);
+		// write format
+		try!(write!(bw,"P2\n"));
+		// write size
+		try!(write!(bw, "{} {}\n", self.header.width, self.header.height));
+		// write maximum brightness
+		try!(write!(bw, "{}\n", 65535)); 
+		// write all data
+		for d in &self.data[..] {
+			try!(write!(bw, "{} ", d));
+		}
+		Ok(())
 	}
 
 }
