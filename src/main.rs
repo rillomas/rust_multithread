@@ -1,9 +1,13 @@
 extern crate rand;
 extern crate time;
 extern crate rustc_serialize;
+// extern crate core;
 use rand::Rng;
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 use std::thread;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 mod image;
 
@@ -31,8 +35,6 @@ fn average_filter(input: &image::Image, fp: FilterParameter, output: &mut image:
 	assert!((fp.end_y % fp.kernel_size) == 0);
 	let kernel_size = fp.kernel_size;
 	let xl = hdr.width / kernel_size;
-	// let yl = hdr.height / kernel_size;
-	// divide image vertically to slices
 	let sy = fp.start_y / kernel_size;
 	let ey = fp.end_y / kernel_size;
 	for y in sy..ey {
@@ -59,6 +61,41 @@ fn average_filter(input: &image::Image, fp: FilterParameter, output: &mut image:
 	}
 }
 
+fn average_filter_multi(img: &image::Image, slice_num: usize, tmp: &mut image::Image) {
+	let st = time::get_time();
+	// divide image vertically to slices
+	let height_per_slice = img.header.height / slice_num;
+	// let mut handle_list = Vec::new();
+	let input = Arc::new(img);
+	let output = Arc::new(Mutex::new(tmp));
+	for i in 0..slice_num {
+		let in_data = input.clone();
+		let out_data = output.clone();
+		// let handle = std::thread::spawn(move || {
+			let start = i * height_per_slice;
+			let end = (i+1) * height_per_slice;
+			let fp = FilterParameter {
+				kernel_size: 2,
+				start_y : start,
+				end_y : end,
+			};
+			// let id = in_data.lock().unwrap();
+			let mut od = out_data.lock().unwrap();
+			println!("Running {}", i);
+			// average_filter(id.deref(), fp, od.deref_mut());
+			average_filter(in_data.deref(), fp, od.deref_mut());
+		// });
+		// handle_list.push(handle);
+	}
+	// for handle in handle_list {
+	// 	handle.join()
+	// 		.unwrap_or_else(|e| panic!("Failed to wait for thread: {:?}", e));
+	// }
+	let et = time::get_time();
+	let diff = et - st;
+	println!("Time: {} msec", diff.num_milliseconds());
+}
+
 fn main() {
 	let w: usize = 1024;
 	let h: usize = 1024;
@@ -78,24 +115,7 @@ fn main() {
 
 	// apply average filter
 	let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
-	let st = time::get_time();
-	let slice_num = 4;
-	let height_per_slice = h / slice_num;
-	for i in 0..slice_num {
-		// std::thread::spawn(move || {
-			let start = i * height_per_slice;
-			let end = (i+1) * height_per_slice;
-			let fp = FilterParameter {
-				kernel_size: 2,
-				start_y : start,
-				end_y : end,
-			};
-			average_filter(&img, fp, &mut tmp);
-		// });
-	}
-	let et = time::get_time();
-	let diff = et - st;
-	println!("Time: {} msec", diff.num_milliseconds());
+	average_filter_multi(&img, 4, &mut tmp);
 
 	//tmp.write_to_file("after.bin").unwrap();
 	let after = "after.pgm";
