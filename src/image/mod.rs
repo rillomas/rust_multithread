@@ -70,14 +70,10 @@ impl Image {
 	}
 
 	pub fn encode(&self, path: &str) ->  Result<(), Box<std::error::Error>> {
-		match bincode::encode(self, bincode::SizeLimit::Infinite) {
-			Err(e) => std::result::Result::Err(Box::new(e)),
-			Ok(bytes) => {
-		        let mut file = try!(File::create(path));
-		        try!(file.write_all(&bytes));
-		        Ok(())
-			}
-		}
+		let bytes = try!(bincode::encode(self, bincode::SizeLimit::Infinite));
+		let mut file = try!(File::create(path));
+		try!(file.write_all(&bytes));
+		Ok(())
 	}
 
 }
