@@ -69,7 +69,7 @@ impl Image {
 		Ok(())
 	}
 
-	pub fn encode(&self, path: &str) ->  Result<(), Box<std::error::Error>> {
+	pub fn serialize(&self, path: &str) ->  Result<(), Box<std::error::Error>> {
 		let bytes = try!(bincode::encode(self, bincode::SizeLimit::Infinite));
 		let mut file = try!(File::create(path));
 		try!(file.write_all(&bytes));

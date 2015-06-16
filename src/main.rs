@@ -3,6 +3,7 @@ extern crate time;
 extern crate rustc_serialize;
 use rand::Rng;
 use std::error::Error;
+use std::thread;
 
 mod image;
 
@@ -72,18 +73,26 @@ fn main() {
 	img.write_as_pgm(before)
 		.unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", before, e));
 	// let before = "before.rcbin";
-	// img.encode(before)
+	// img.serialize(before)
 	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {}", before, e));
 
 	// apply average filter
 	let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
-	let fp = FilterParameter {
-		kernel_size: 2,
-		start_y : 0,
-		end_y : h,
-	};
 	let st = time::get_time();
-	average_filter(&img, fp, &mut tmp);
+	let slice_num = 4;
+	let height_per_slice = h / slice_num;
+	for i in 0..slice_num {
+		// std::thread::spawn(move || {
+			let start = i * height_per_slice;
+			let end = (i+1) * height_per_slice;
+			let fp = FilterParameter {
+				kernel_size: 2,
+				start_y : start,
+				end_y : end,
+			};
+			average_filter(&img, fp, &mut tmp);
+		// });
+	}
 	let et = time::get_time();
 	let diff = et - st;
 	println!("Time: {} msec", diff.num_milliseconds());
@@ -93,6 +102,6 @@ fn main() {
 	tmp.write_as_pgm(after)
 		.unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", after, e));
 	// let after = "after.rcbin";
-	// tmp.encode(after)
+	// tmp.serialize(after)
 	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {}", after, e));
 }
