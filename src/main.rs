@@ -51,34 +51,25 @@ fn average_filter(input: &image::Image, kernel_size: usize, output: &mut image::
 		}
 	}
 }
-/*
-struct FilterChunk<'a> {
-	parameter: FilterParameter,
-	chunk: 
-}
 
-fn process_chunK(input: &image::Image, kernel_size: usize, chunk_index: usize, output: &mut[u16]) {
-	let hdr = input.header;
-	let xl = hdr.width / kernel_size;
-	let start_y = hdr.width*chunk_index;
-	let end_y = (hdr.width+)
-	let sy =  / kernel_size;
-	let ey = fp.end_y / kernel_size;
-	for y in sy..ey {
-		let yidx = y *kernel_size;
-		for x in 0..xl {
+fn average_filter_chunK(input: &[u16], slice_width: usize, slice_height: usize, kernel_size: usize, output: &mut[u16]) {
+	let ex = slice_width / kernel_size;
+	let ey = slice_height / kernel_size;
+	for y in 0..ey {
+		let yidx = y * kernel_size;
+		for x in 0..ex {
 			let xidx = x * kernel_size;
 			let mut sum : u32 = 0;
 			for ky in 0..kernel_size {
-				let row_start = (yidx+ky) * hdr.width;
+				let row_start = (yidx+ky) * slice_width;
 				for kx in 0..kernel_size {
 					let idx = row_start + (xidx + kx);
-					sum += input.data[idx] as u32;
+					sum += input[idx] as u32;
 				}
 			}
 			let avg = (sum / ((kernel_size*kernel_size) as u32)) as u16;
 			for ky in 0..kernel_size {
-				let row_start = (yidx+ky) * hdr.width;
+				let row_start = (yidx+ky) * slice_width;
 				for kx in 0..kernel_size {
 					let idx = row_start + (xidx + kx);
 					output[idx] = avg;
@@ -88,20 +79,19 @@ fn process_chunK(input: &image::Image, kernel_size: usize, chunk_index: usize, o
 	}
 }
 
-fn average_filter_multi(img: &image::Image, slice_num: usize, tmp: &mut image::Image) {
+fn average_filter_multi(img: &image::Image, kernel_size: usize, slice_num: usize, tmp: &mut image::Image) {
+	let hdr = img.header;
+	assert!(hdr == tmp.header);
+	assert!((hdr.width % kernel_size) == 0);
+	assert!((hdr.height % kernel_size) == 0);
 	let st = time::get_time();
 	// divide image vertically to slices
-	let height_per_slice = img.header.height / slice_num;
-	let size_per_chunk = height_per_slice * img.headr.width;
+	let height_per_slice = hdr.height / slice_num;
+	let size_per_chunk = height_per_slice * hdr.width;
 	let in_itr = img.data.chunks(size_per_chunk);
-	let out_itr = tmp.data.chunks_mut(size_per_chunk)
-	for chunk in in_itr.zip(out_itr) {
-		match chunk {
-			Some(input, output) => {
-				process_chunK(img, chunk);
-			},
-			None => ()
-		}
+	let out_itr = tmp.data.chunks_mut(size_per_chunk);
+	for (input, output) in in_itr.zip(out_itr) {
+		average_filter_chunK(input, hdr.width, height_per_slice, kernel_size, output);
 	}
 	// let input = Arc::new(img);
 	// let output = Arc::new(tmp);
@@ -125,7 +115,6 @@ fn average_filter_multi(img: &image::Image, slice_num: usize, tmp: &mut image::I
 	let diff = et - st;
 	println!("Time: {} msec", diff.num_milliseconds());
 }
-*/
 
 fn main() {
 	let w: usize = 1024;
@@ -146,8 +135,8 @@ fn main() {
 
 	// apply average filter
 	let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
-	// average_filter_multi(&img, 4, &mut tmp);
-	average_filter(&img, 2, &mut tmp);
+	average_filter_multi(&img, 4, 4, &mut tmp);
+	// average_filter(&img, 2, &mut tmp);
 
 	//tmp.write_to_file("after.bin").unwrap();
 	let after = "after.pgm";
