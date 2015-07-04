@@ -1,3 +1,5 @@
+#![feature(scoped)]
+
 extern crate rand;
 extern crate time;
 extern crate rustc_serialize;
@@ -95,19 +97,19 @@ fn average_filter_multi(input: &image::Image, kernel_size: usize, slice_num: usi
 	let size_per_chunk = height_per_slice * hdr.width;
 	let in_itr = input.data.chunks(size_per_chunk);
 	let out_itr = output.data.chunks_mut(size_per_chunk);
-	for (input, output) in in_itr.zip(out_itr) {
-		average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
-	}
-	// let mut handles = Vec::new();
 	// for (input, output) in in_itr.zip(out_itr) {
-	// 	let h = std::thread::spawn(move || {
-	// 		average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
-	// 	});
-	// 	handles.push(h);
+	// 	average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
 	// }
-	// for handle in handles {
-	// 	handle.join().unwrap();
-	// }
+	let mut handles = Vec::new();
+	for (input, output) in in_itr.zip(out_itr) {
+		let h = std::thread::scoped(move || {
+			average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
+		});
+		handles.push(h);
+	}
+	for handle in handles {
+		handle.join();
+	}
 	let et = time::get_time();
 	let diff = et - st;
 	println!("Time: {} msec", diff.num_milliseconds());
