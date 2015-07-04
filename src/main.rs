@@ -3,12 +3,12 @@ extern crate time;
 extern crate rustc_serialize;
 // extern crate core;
 use rand::Rng;
-use std::error::Error;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::ops::Deref;
-use std::ops::DerefMut;
+// use std::error::Error;
+// use std::rc::Rc;
+// use std::sync::{Arc, Mutex};
+// use std::thread;
+// use std::ops::Deref;
+// use std::ops::DerefMut;
 
 mod image;
 
@@ -52,7 +52,12 @@ fn average_filter(input: &image::Image, kernel_size: usize, output: &mut image::
 	}
 }
 
-fn average_filter_chunK(input: &[u16], slice_width: usize, slice_height: usize, kernel_size: usize, output: &mut[u16]) {
+/// Perfrom an average filter using the given input and kernel size
+/// example when kernel_size is two :
+///   input        output
+///  1 2 3 4  ->  3 3 5 5 
+///  5 6 7 8  ->  3 3 5 5
+fn average_filter_chunk(input: &[u16], slice_width: usize, slice_height: usize, kernel_size: usize, output: &mut[u16]) {
 	let ex = slice_width / kernel_size;
 	let ey = slice_height / kernel_size;
 	for y in 0..ey {
@@ -79,37 +84,29 @@ fn average_filter_chunK(input: &[u16], slice_width: usize, slice_height: usize, 
 	}
 }
 
-fn average_filter_multi(img: &image::Image, kernel_size: usize, slice_num: usize, tmp: &mut image::Image) {
-	let hdr = img.header;
-	assert!(hdr == tmp.header);
+fn average_filter_multi(input: &image::Image, kernel_size: usize, slice_num: usize, output: &mut image::Image) {
+	let hdr = input.header;
+	assert!(hdr == output.header);
 	assert!((hdr.width % kernel_size) == 0);
 	assert!((hdr.height % kernel_size) == 0);
 	let st = time::get_time();
 	// divide image vertically to slices
 	let height_per_slice = hdr.height / slice_num;
 	let size_per_chunk = height_per_slice * hdr.width;
-	let in_itr = img.data.chunks(size_per_chunk);
-	let out_itr = tmp.data.chunks_mut(size_per_chunk);
+	let in_itr = input.data.chunks(size_per_chunk);
+	let out_itr = output.data.chunks_mut(size_per_chunk);
 	for (input, output) in in_itr.zip(out_itr) {
-		average_filter_chunK(input, hdr.width, height_per_slice, kernel_size, output);
+		average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
 	}
-	// let input = Arc::new(img);
-	// let output = Arc::new(tmp);
-	// let handles: Vec<_>  = (0..slice_num).map(|i|{
-		// let input = input.clone();
-		// let output = output.clone();
-		// std::thread::spawn(move || {
-			// let fp = FilterParameter {
-			// 	kernel_size: 2,
-			// 	chunk_size: height_per_slice,
-			// };
-			//let mut od = output.unwrap();
-			// println!("Running {}", i);
-			// average_filter(input.deref(), fp, output.deref_mut());
-		// })
-	// }).collect();
+	// let mut handles = Vec::new();
+	// for (input, output) in in_itr.zip(out_itr) {
+	// 	let h = std::thread::spawn(move || {
+	// 		average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
+	// 	});
+	// 	handles.push(h);
+	// }
 	// for handle in handles {
-		// handle.join().unwrap();
+	// 	handle.join().unwrap();
 	// }
 	let et = time::get_time();
 	let diff = et - st;
