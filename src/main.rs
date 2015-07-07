@@ -11,8 +11,33 @@ use rand::Rng;
 // use std::thread;
 // use std::ops::Deref;
 // use std::ops::DerefMut;
+use std::sync::mpsc::{Sender, Receiver};
 
 mod image;
+
+struct Channel<T> {
+	sender: Sender<T>,
+	receiver: Receiver<T>,
+}
+
+struct ThreadPool<T> {
+	size: usize,
+	channels: Vec<Channel<T>>,
+}
+
+impl<T> ThreadPool<T> {
+	pub fn new(pool_size: usize) -> ThreadPool<T> {
+		let mut channels = Vec::new();
+		for i in 0..pool_size {
+			let (s, r) = std::sync::mpsc::channel();
+			channels.push(Channel{ sender: s, receiver: r});
+		}
+		ThreadPool {
+			size : pool_size,
+			channels : channels,
+		}
+	}
+}
 
 fn set_random_data(img: &mut image::Image) {
 	let mut rng = rand::thread_rng();
@@ -123,6 +148,8 @@ fn main() {
 	let msg = format!("img: {:4}x{:4} {:?}", hdr.width, hdr.height, hdr.format);
 	println!("{}", msg);
 	set_random_data(&mut img);
+
+	let tp = ThreadPool::<u16>::new(4);
 
 	//img.write_to_file("before.bin").unwrap();
 	let before = "before.pgm";
