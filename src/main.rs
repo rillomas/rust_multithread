@@ -12,29 +12,47 @@ use rand::Rng;
 // use std::ops::Deref;
 // use std::ops::DerefMut;
 use std::sync::mpsc::{Sender, Receiver};
+use std::thread::JoinHandle;
 
 mod image;
 
-struct Channel<T> {
+struct Thread<T> {
+	id : usize,
 	sender: Sender<T>,
-	receiver: Receiver<T>,
+	handle: JoinHandle<()>,
 }
 
-struct ThreadPool<T> {
+struct ThreadPool {
 	size: usize,
-	channels: Vec<Channel<T>>,
+	threads: Vec<Thread<u16>>,
 }
 
-impl<T> ThreadPool<T> {
-	pub fn new(pool_size: usize) -> ThreadPool<T> {
-		let mut channels = Vec::new();
+impl ThreadPool {
+	pub fn new(pool_size: usize) -> ThreadPool {
+		let mut threads = Vec::new();
+		// spawn all threads
 		for i in 0..pool_size {
 			let (s, r) = std::sync::mpsc::channel();
-			channels.push(Channel{ sender: s, receiver: r});
+			let h = std::thread::spawn(move || {
+				loop {
+					let msg = r.recv().unwrap();
+					println!("Received {}", msg);
+					if msg == 0 {
+						println!("");
+						break;
+					}
+				}
+			});
+			let t = Thread {
+				id : i,
+				sender : s,
+				handle : h,
+			};
+			threads.push(t);
 		}
 		ThreadPool {
 			size : pool_size,
-			channels : channels,
+			threads : threads,
 		}
 	}
 }
@@ -149,7 +167,7 @@ fn main() {
 	println!("{}", msg);
 	set_random_data(&mut img);
 
-	let tp = ThreadPool::<u16>::new(4);
+	let tp = ThreadPool::new(4);
 
 	//img.write_to_file("before.bin").unwrap();
 	let before = "before.pgm";
