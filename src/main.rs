@@ -36,9 +36,9 @@ impl ThreadPool {
 			let h = std::thread::spawn(move || {
 				loop {
 					let msg = r.recv().unwrap();
-					println!("Received {}", msg);
+					println!("[{}] Received {}", i, msg);
 					if msg == 0 {
-						println!("");
+						println!("[{}] Exiting thread", i);
 						break;
 					}
 				}
@@ -54,6 +54,15 @@ impl ThreadPool {
 			size : pool_size,
 			threads : threads,
 		}
+	}
+
+	pub fn join(mut self) {
+		// stop all threads and join
+		for t in self.threads {
+			t.sender.send(0);
+			t.handle.join().unwrap();
+		}
+		println!("Finished joining threads");
 	}
 }
 
@@ -170,23 +179,24 @@ fn main() {
 	let tp = ThreadPool::new(4);
 
 	//img.write_to_file("before.bin").unwrap();
-	let before = "before.pgm";
-	img.write_as_pgm(before)
-		.unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", before, e));
+	// let before = "before.pgm";
+	// img.write_as_pgm(before)
+		// .unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", before, e));
 	// let before = "before.rcbin";
 	// img.serialize(before)
 	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {}", before, e));
 
 	// apply average filter
-	let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
-	average_filter_multi(&img, 4, 4, &mut tmp);
+	// let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
+	// average_filter_multi(&img, 4, 4, &mut tmp);
 	// average_filter(&img, 2, &mut tmp);
 
 	//tmp.write_to_file("after.bin").unwrap();
-	let after = "after.pgm";
-	tmp.write_as_pgm(after)
-		.unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", after, e));
+	// let after = "after.pgm";
+	// tmp.write_as_pgm(after)
+		// .unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", after, e));
 	// let after = "after.rcbin";
 	// tmp.serialize(after)
 	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {}", after, e));
+	tp.join();
 }
