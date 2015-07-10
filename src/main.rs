@@ -27,22 +27,24 @@ struct ThreadPool {
 	threads: Vec<Thread<u16>>,
 }
 
+fn process_image_loop(thread_id: usize, r: Receiver<u16>) {
+	loop {
+		let msg = r.recv().unwrap();
+		println!("[{}] Received {}", thread_id, msg);
+		if msg == 0 {
+			println!("[{}] Exiting thread", thread_id);
+			break;
+		}
+	}
+}
+
 impl ThreadPool {
 	pub fn new(pool_size: usize) -> ThreadPool {
 		let mut threads = Vec::new();
 		// spawn all threads
 		for i in 0..pool_size {
 			let (s, r) = std::sync::mpsc::channel();
-			let h = std::thread::spawn(move || {
-				loop {
-					let msg = r.recv().unwrap();
-					println!("[{}] Received {}", i, msg);
-					if msg == 0 {
-						println!("[{}] Exiting thread", i);
-						break;
-					}
-				}
-			});
+			let h = std::thread::spawn(move || process_image_loop(i, r));
 			let t = Thread {
 				id : i,
 				sender : s,
