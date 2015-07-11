@@ -28,43 +28,46 @@ struct Thread<T> {
 	handle: JoinHandle<()>,
 }
 
-struct ProcessImageMessage {
+struct ProcessMessage {
 	message: Message,
-	input: Vec<u16>,
+	// input: &'a Vec<u16>,
 	// outout: &'b [u16],
 	slice_width: usize,
 	slice_height: usize,
+	slice_start_y: usize,
 	kernel_size: usize,
 }
 
-impl ProcessImageMessage {
-	fn new(msg_type: Message, input: Vec<u16>, slice_width: usize, slice_height: usize, kernel_size: usize) -> ProcessImageMessage {
-		ProcessImageMessage {
+impl ProcessMessage {
+	fn new(msg_type: Message, input: &Vec<u16>, slice_width: usize, slice_height: usize, slice_start_y: usize, kernel_size: usize) -> ProcessMessage {
+		ProcessMessage {
 			message: msg_type,
-			input: input,
+			// input: input,
 			slice_width: slice_width,
 			slice_height: slice_height,
+			slice_start_y : slice_start_y,
 			kernel_size : kernel_size,
 		}
 	}
 
-	fn exit() -> ProcessImageMessage {
-		ProcessImageMessage {
+	fn exit() -> ProcessMessage {
+		ProcessMessage {
 			message: Message::Exit,
-			input: Vec::new(),
+			// input: &Vec::new(),
 			slice_width: 0,
 			slice_height: 0,
+			slice_start_y: 0,
 			kernel_size : 0,
 		}
 	}
 }
 
-struct ThreadPool {
-	size: usize,
-	threads: Vec<Thread<ProcessImageMessage>>,
+struct ImageProcessor {
+	thread_num: usize,
+	threads: Vec<Thread<ProcessMessage>>,
 }
 
-fn process_image_loop(thread_id: usize, r: Receiver<ProcessImageMessage>) {
+fn process_image_loop(thread_id: usize, r: Receiver<ProcessMessage>) {
 	loop {
 		let msg = r.recv().unwrap();
 		println!("[{}] Received message: {:?}", thread_id, msg.message);
@@ -75,16 +78,17 @@ fn process_image_loop(thread_id: usize, r: Receiver<ProcessImageMessage>) {
 			},
 			Message::AverageFilter => {
 				// process average filter
+				println!("[{}] Executing average filter", thread_id);
 			}
 		}
 	}
 }
 
-impl ThreadPool {
-	pub fn new(pool_size: usize) -> ThreadPool {
+impl ImageProcessor {
+	pub fn new(thread_num: usize) -> ImageProcessor {
 		let mut threads = Vec::new();
 		// spawn all threads
-		for i in 0..pool_size {
+		for i in 0..thread_num {
 			let (s, r) = std::sync::mpsc::channel();
 			let h = std::thread::spawn(move || process_image_loop(i, r));
 			let t = Thread {
@@ -94,16 +98,37 @@ impl ThreadPool {
 			};
 			threads.push(t);
 		}
-		ThreadPool {
-			size : pool_size,
+		ImageProcessor {
+			thread_num : thread_num,
 			threads : threads,
 		}
 	}
 
-	pub fn join(mut self) {
+	pub fn average_filter(&self, input: &image::Image, kernel_size: usize, output: &mut image::Image) {
+		let hdr = input.header;
+		assert!(hdr == output.header);
+		assert!((hdr.width % kernel_size) == 0);
+		assert!((hdr.height % kernel_size) == 0);
+		// divide image vertically to slices
+		let height_per_slice = hdr.height / self.thread_num;
+		let size_per_chunk = height_per_slice * hdr.width;
+		let out_itr = output.data.chunks_mut(size_per_chunk);
+		let mut i = 0;
+		for (output, thread) in out_itr.zip(&self.threads) {
+			let start_y = i*height_per_slice;
+			let msg = ProcessMessage::new(Message::AverageFilter, &input.data, hdr.width, height_per_slice, start_y, kernel_size);
+			thread.sender.send(msg);
+			i += 1;
+		}
+		// for (input, output) in in_itr.zip(out_itr) {
+		// 	average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
+		// }
+	}
+
+	pub fn join(self) {
 		// stop all threads and join
 		for t in self.threads {
-			t.sender.send(ProcessImageMessage::exit()).unwrap();
+			t.sender.send(ProcessMessage::exit()).unwrap();
 			t.handle.join().unwrap();
 		}
 		println!("Finished joining threads");
@@ -220,27 +245,20 @@ fn main() {
 	println!("{}", msg);
 	set_random_data(&mut img);
 
-	let tp = ThreadPool::new(4);
+	let ip = ImageProcessor::new(4);
 
-	//img.write_to_file("before.bin").unwrap();
 	// let before = "before.pgm";
 	// img.write_as_pgm(before)
-		// .unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", before, e));
-	// let before = "before.rcbin";
-	// img.serialize(before)
-	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {}", before, e));
+	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", before, e));
 
 	// apply average filter
-	// let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
+	let mut tmp = image::Image::new(w, h, image::ImageFormat::GrayScale);
+	ip.average_filter(&img, 4, &mut tmp);
 	// average_filter_multi(&img, 4, 4, &mut tmp);
 	// average_filter(&img, 2, &mut tmp);
 
-	//tmp.write_to_file("after.bin").unwrap();
 	// let after = "after.pgm";
 	// tmp.write_as_pgm(after)
-		// .unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", after, e));
-	// let after = "after.rcbin";
-	// tmp.serialize(after)
-	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {}", after, e));
-	tp.join();
+	// 	.unwrap_or_else(|e| panic!("Error while writing to {}: {:?}", after, e));
+	ip.join();
 }
