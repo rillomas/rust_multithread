@@ -1,4 +1,4 @@
-#![feature(scoped)]
+// #![feature(scoped)]
 
 extern crate rand;
 extern crate time;
@@ -30,16 +30,31 @@ struct Thread<T> {
 
 struct ProcessImageMessage {
 	message: Message,
-	// input: &[u16],
-	// slice_width: usize,
-	// slice_height: usize,
-	// kernel_size: usize,
+	input: Vec<u16>,
+	// outout: &'b [u16],
+	slice_width: usize,
+	slice_height: usize,
+	kernel_size: usize,
 }
 
 impl ProcessImageMessage {
-	fn new(msg_type: Message) -> ProcessImageMessage {
+	fn new(msg_type: Message, input: Vec<u16>, slice_width: usize, slice_height: usize, kernel_size: usize) -> ProcessImageMessage {
 		ProcessImageMessage {
 			message: msg_type,
+			input: input,
+			slice_width: slice_width,
+			slice_height: slice_height,
+			kernel_size : kernel_size,
+		}
+	}
+
+	fn exit() -> ProcessImageMessage {
+		ProcessImageMessage {
+			message: Message::Exit,
+			input: Vec::new(),
+			slice_width: 0,
+			slice_height: 0,
+			kernel_size : 0,
 		}
 	}
 }
@@ -88,7 +103,7 @@ impl ThreadPool {
 	pub fn join(mut self) {
 		// stop all threads and join
 		for t in self.threads {
-			t.sender.send(ProcessImageMessage::new(Message::Exit));
+			t.sender.send(ProcessImageMessage::exit()).unwrap();
 			t.handle.join().unwrap();
 		}
 		println!("Finished joining threads");
@@ -167,34 +182,34 @@ fn average_filter_chunk(input: &[u16], slice_width: usize, slice_height: usize, 
 	}
 }
 
-fn average_filter_multi(input: &image::Image, kernel_size: usize, slice_num: usize, output: &mut image::Image) {
-	let hdr = input.header;
-	assert!(hdr == output.header);
-	assert!((hdr.width % kernel_size) == 0);
-	assert!((hdr.height % kernel_size) == 0);
-	let st = time::get_time();
-	// divide image vertically to slices
-	let height_per_slice = hdr.height / slice_num;
-	let size_per_chunk = height_per_slice * hdr.width;
-	let in_itr = input.data.chunks(size_per_chunk);
-	let out_itr = output.data.chunks_mut(size_per_chunk);
-	// for (input, output) in in_itr.zip(out_itr) {
-	// 	average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
-	// }
-	let mut handles = Vec::new();
-	for (input, output) in in_itr.zip(out_itr) {
-		let h = std::thread::scoped(move || {
-			average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
-		});
-		handles.push(h);
-	}
-	for handle in handles {
-		handle.join();
-	}
-	let et = time::get_time();
-	let diff = et - st;
-	println!("Time: {} msec", diff.num_milliseconds());
-}
+// fn average_filter_multi(input: &image::Image, kernel_size: usize, slice_num: usize, output: &mut image::Image) {
+// 	let hdr = input.header;
+// 	assert!(hdr == output.header);
+// 	assert!((hdr.width % kernel_size) == 0);
+// 	assert!((hdr.height % kernel_size) == 0);
+// 	let st = time::get_time();
+// 	// divide image vertically to slices
+// 	let height_per_slice = hdr.height / slice_num;
+// 	let size_per_chunk = height_per_slice * hdr.width;
+// 	let in_itr = input.data.chunks(size_per_chunk);
+// 	let out_itr = output.data.chunks_mut(size_per_chunk);
+// 	// for (input, output) in in_itr.zip(out_itr) {
+// 	// 	average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
+// 	// }
+// 	let mut handles = Vec::new();
+// 	for (input, output) in in_itr.zip(out_itr) {
+// 		let h = std::thread::scoped(move || {
+// 			average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
+// 		});
+// 		handles.push(h);
+// 	}
+// 	for handle in handles {
+// 		handle.join();
+// 	}
+// 	let et = time::get_time();
+// 	let diff = et - st;
+// 	println!("Time: {} msec", diff.num_milliseconds());
+// }
 
 fn main() {
 	let w: usize = 1024;
