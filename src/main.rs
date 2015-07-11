@@ -16,24 +16,51 @@ use std::thread::JoinHandle;
 
 mod image;
 
+#[derive(Debug)]
+enum Message {
+	Exit,
+	AverageFilter,
+}
+
 struct Thread<T> {
 	id : usize,
 	sender: Sender<T>,
 	handle: JoinHandle<()>,
 }
 
-struct ThreadPool {
-	size: usize,
-	threads: Vec<Thread<u16>>,
+struct ProcessImageMessage {
+	message: Message,
+	// input: &[u16],
+	// slice_width: usize,
+	// slice_height: usize,
+	// kernel_size: usize,
 }
 
-fn process_image_loop(thread_id: usize, r: Receiver<u16>) {
+impl ProcessImageMessage {
+	fn new(msg_type: Message) -> ProcessImageMessage {
+		ProcessImageMessage {
+			message: msg_type,
+		}
+	}
+}
+
+struct ThreadPool {
+	size: usize,
+	threads: Vec<Thread<ProcessImageMessage>>,
+}
+
+fn process_image_loop(thread_id: usize, r: Receiver<ProcessImageMessage>) {
 	loop {
 		let msg = r.recv().unwrap();
-		println!("[{}] Received {}", thread_id, msg);
-		if msg == 0 {
-			println!("[{}] Exiting thread", thread_id);
-			break;
+		println!("[{}] Received message: {:?}", thread_id, msg.message);
+		match msg.message {
+			Message::Exit => {
+				println!("[{}] Exiting thread", thread_id);
+				break;
+			},
+			Message::AverageFilter => {
+				// process average filter
+			}
 		}
 	}
 }
@@ -61,7 +88,7 @@ impl ThreadPool {
 	pub fn join(mut self) {
 		// stop all threads and join
 		for t in self.threads {
-			t.sender.send(0);
+			t.sender.send(ProcessImageMessage::new(Message::Exit));
 			t.handle.join().unwrap();
 		}
 		println!("Finished joining threads");
