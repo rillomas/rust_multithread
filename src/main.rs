@@ -17,19 +17,24 @@ use std::thread::JoinHandle;
 mod image;
 
 #[derive(Debug)]
-enum Message {
+enum InputMessage {
 	Exit,
 	AverageFilter,
 }
 
-struct Thread<T> {
+#[derive(Debug)]
+enum OutputMessage {
+	FinishedProcessing
+}
+struct Thread {
 	id : usize,
-	sender: Sender<T>,
+	input: Sender<ProcessMessage>,
+	output: Receiver<OutputMessage>,
 	handle: JoinHandle<()>,
 }
 
 struct ProcessMessage {
-	message: Message,
+	message: InputMessage,
 	// input: &'a Vec<u16>,
 	// outout: &'b [u16],
 	slice_width: usize,
@@ -39,7 +44,7 @@ struct ProcessMessage {
 }
 
 impl ProcessMessage {
-	fn new(msg_type: Message, input: &Vec<u16>, slice_width: usize, slice_height: usize, slice_start_y: usize, kernel_size: usize) -> ProcessMessage {
+	fn new(msg_type: InputMessage, input: &Vec<u16>, slice_width: usize, slice_height: usize, slice_start_y: usize, kernel_size: usize) -> ProcessMessage {
 		ProcessMessage {
 			message: msg_type,
 			// input: input,
@@ -52,7 +57,7 @@ impl ProcessMessage {
 
 	fn exit() -> ProcessMessage {
 		ProcessMessage {
-			message: Message::Exit,
+			message: InputMessage::Exit,
 			// input: &Vec::new(),
 			slice_width: 0,
 			slice_height: 0,
@@ -64,21 +69,22 @@ impl ProcessMessage {
 
 struct ImageProcessor {
 	thread_num: usize,
-	threads: Vec<Thread<ProcessMessage>>,
+	threads: Vec<Thread>,
 }
 
-fn process_image_loop(thread_id: usize, r: Receiver<ProcessMessage>) {
+fn process_image_loop(thread_id: usize, r: Receiver<ProcessMessage>, s: Sender<OutputMessage>) {
 	loop {
 		let msg = r.recv().unwrap();
 		println!("[{}] Received message: {:?}", thread_id, msg.message);
 		match msg.message {
-			Message::Exit => {
+			InputMessage::Exit => {
 				println!("[{}] Exiting thread", thread_id);
 				break;
 			},
-			Message::AverageFilter => {
+			InputMessage::AverageFilter => {
 				// process average filter
 				println!("[{}] Executing average filter", thread_id);
+				s.send(OutputMessage::FinishedProcessing).unwrap();
 			}
 		}
 	}
@@ -89,11 +95,13 @@ impl ImageProcessor {
 		let mut threads = Vec::new();
 		// spawn all threads
 		for i in 0..thread_num {
-			let (s, r) = std::sync::mpsc::channel();
-			let h = std::thread::spawn(move || process_image_loop(i, r));
+			let (thread_input, r) = std::sync::mpsc::channel();
+			let (s, thread_output) = std::sync::mpsc::channel();
+			let h = std::thread::spawn(move || process_image_loop(i, r, s));
 			let t = Thread {
 				id : i,
-				sender : s,
+				input : thread_input,
+				output: thread_output,
 				handle : h,
 			};
 			threads.push(t);
@@ -116,9 +124,13 @@ impl ImageProcessor {
 		let mut i = 0;
 		for (output, thread) in out_itr.zip(&self.threads) {
 			let start_y = i*height_per_slice;
-			let msg = ProcessMessage::new(Message::AverageFilter, &input.data, hdr.width, height_per_slice, start_y, kernel_size);
-			thread.sender.send(msg);
+			let msg = ProcessMessage::new(InputMessage::AverageFilter, &input.data, hdr.width, height_per_slice, start_y, kernel_size);
+			thread.input.send(msg);
 			i += 1;
+		}
+		// wait for jobs to finish
+		for t in &self.threads {
+			t.output.recv().unwrap();
 		}
 		// for (input, output) in in_itr.zip(out_itr) {
 		// 	average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
@@ -128,7 +140,7 @@ impl ImageProcessor {
 	pub fn join(self) {
 		// stop all threads and join
 		for t in self.threads {
-			t.sender.send(ProcessMessage::exit()).unwrap();
+			t.input.send(ProcessMessage::exit()).unwrap();
 			t.handle.join().unwrap();
 		}
 		println!("Finished joining threads");
