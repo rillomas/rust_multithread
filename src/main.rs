@@ -1,16 +1,8 @@
-#![feature(scoped)]
-
 extern crate rand;
 extern crate time;
+extern crate crossbeam;
 extern crate rustc_serialize;
-// extern crate core;
 use rand::Rng;
-// use std::error::Error;
-// use std::rc::Rc;
-// use std::sync::{Arc, Mutex};
-// use std::thread;
-// use std::ops::Deref;
-// use std::ops::DerefMut;
 
 mod image;
 
@@ -100,16 +92,13 @@ fn average_filter_multi(input: &image::Image, kernel_size: usize, slice_num: usi
 	// for (input, output) in in_itr.zip(out_itr) {
 	// 	average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
 	// }
-	let mut handles = Vec::new();
-	for (input, output) in in_itr.zip(out_itr) {
-		let h = std::thread::scoped(move || {
-			average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
-		});
-		handles.push(h);
-	}
-	for handle in handles {
-		handle.join();
-	}
+	crossbeam::scope(|scope| {
+		for (input, output) in in_itr.zip(out_itr) {
+			scope.spawn(move || {
+				average_filter_chunk(input, hdr.width, height_per_slice, kernel_size, output);
+			});
+		}
+	});
 	let et = time::get_time();
 	let diff = et - st;
 	println!("Time: {} msec", diff.num_milliseconds());
